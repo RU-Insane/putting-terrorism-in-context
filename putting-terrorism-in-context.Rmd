@@ -1,0 +1,86 @@
+---
+title: "Putting Terrorism In Context"
+author: "Keshvi Gupta"
+date: "2023-04-19"
+output:
+  html_document:
+    number_sections: false
+    toc: true
+    fig_width: 8
+    fig_height: 6
+    theme: cosmo
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Install required libraries
+
+```{r echo=TRUE}
+library(ggplot2)
+library(leaflet)
+library(treemap)
+library(corrplot)
+library(tm)
+library(tidytext)
+library(tidyr)
+library(wordcloud)
+library(knitr)
+library(kableExtra)
+library(formattable)
+library(dplyr)
+library(topicmodels)
+library(readr)
+options(knitr.table.format = "html")
+```
+
+```{r echo=TRUE}
+terror <- read.csv('../globalterrorismdb_0718dist.csv', header = TRUE, stringsAsFactors = FALSE, na.strings = c("", "Unknown"))
+```
+
+
+```{r echo=TRUE}
+colnames(terror) <- c('event_id', 'year', 'month', 'day', 'approximate_date', 'extended_incident', 'resolution', 'country_code', 'country', 'region_code', 'region', 'city', 'latitude', 'longitude', 'specific_location', 'target_type_code', 'target_type', 'target_subtype', 'target', 'target_nationality', 'target_description', 'perpetrator_group_name', 'perpetrator_group_subname', 'perpetrator_group_affiliation', 'perpetrator_individual', 'perpetrator_unknown', 'perpetrator_suicide', 'perpetrator_claimed', 'perpetrator_weapon_type_code', 'perpetrator_weapon_type', 'perpetrator_kills', 'perpetrator_kill_method', 'perpetrator_wounds', 'perpetrator_wound_method', 'perpetrator_captured', 'perpetrator_hostage', 'perpetrator_ransom', 'perpetrator_kidnapped', 'incident_summary', 'sources', 'notes')
+```
+
+```{r echo=TRUE}
+terror$date <- as.Date(paste(terror$year, terror$month, terror$day, sep = "-"), format = "%Y-%m-%d")
+```
+
+```{r echo=TRUE}
+terror_us <- subset(terror, country == 'United States')
+```
+
+
+```{r echo=TRUE}
+missing_values <- colSums(is.na(terror))
+missing_values
+```
+
+```{r echo=TRUE}
+country_counts <- table(terror$country)
+most_attacks_country <- names(country_counts)[which.max(country_counts)]
+most_attacks_country
+```
+
+```{r echo=TRUE}
+ggplot(terror, aes(x = year, fill = region)) +
+  geom_bar(width = 0.8, color = "black") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Year", y = "Number of Terrorist Incidents", 
+       title = "Number of Terrorist Incidents by Year and Region") +
+  theme(plot.title = element_text(size = 18, face = "bold"), 
+        axis.title = element_text(size = 14), 
+        axis.text = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+
+
+
+
+
+
