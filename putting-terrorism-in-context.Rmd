@@ -1,6 +1,5 @@
 ---
 title: "Putting Terrorism In Context"
-author: "Keshvi Gupta"
 date: "2023-04-19"
 output:
   html_document:
@@ -21,7 +20,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r echo=TRUE}
 library(ggplot2)
-library(leaflet)
 library(treemap)
 library(corrplot)
 library(tm)
@@ -34,6 +32,11 @@ library(formattable)
 library(dplyr)
 library(topicmodels)
 library(readr)
+library(lubridate)
+library(dplyr)
+library(magrittr)
+library(leaflet)
+
 options(knitr.table.format = "html")
 ```
 
@@ -43,12 +46,157 @@ terror <- read.csv('../globalterrorismdb_0718dist.csv', header = TRUE, stringsAs
 
 
 ```{r echo=TRUE}
-colnames(terror) <- c('event_id', 'year', 'month', 'day', 'approximate_date', 'extended_incident', 'resolution', 'country_code', 'country', 'region_code', 'region', 'city', 'latitude', 'longitude', 'specific_location', 'target_type_code', 'target_type', 'target_subtype', 'target', 'target_nationality', 'target_description', 'perpetrator_group_name', 'perpetrator_group_subname', 'perpetrator_group_affiliation', 'perpetrator_individual', 'perpetrator_unknown', 'perpetrator_suicide', 'perpetrator_claimed', 'perpetrator_weapon_type_code', 'perpetrator_weapon_type', 'perpetrator_kills', 'perpetrator_kill_method', 'perpetrator_wounds', 'perpetrator_wound_method', 'perpetrator_captured', 'perpetrator_hostage', 'perpetrator_ransom', 'perpetrator_kidnapped', 'incident_summary', 'sources', 'notes')
+
+KeepCols <- c('eventid','iyear', 'imonth', 'iday','extended','country_txt','region_txt','provstate','city','latitude','longitude','summary','alternative_txt','success','attacktype1_txt','targettype1_txt','targsubtype1_txt','natlty1_txt','gname','motive','nperps','weaptype1_txt','nkill')
+
 ```
 
+
 ```{r echo=TRUE}
-terror$date <- as.Date(paste(terror$year, terror$month, terror$day, sep = "-"), format = "%Y-%m-%d")
+
+terror_df <- terror[colnames(terror) %in% KeepCols]
+terror_df$iday[terror_df$iday == 0] <- 1 #there are some days with value zero. making it into 1
+terror_df$imonth[terror_df$imonth == 0] <- 1 
+terror_df$iyear <- as.factor(terror_df$iyear)
+terror_df$imonth <- as.factor(terror_df$imonth)
+terror_df$iday <- as.factor(terror_df$iday)
+terror_df$date <- as.Date(paste(terror_df$iyear, terror_df$imonth, terror_df$iday, sep = "-"), format = "%Y-%m-%d")
+
 ```
+
+```{r}
+colnames(terror_df)
+
+```
+
+
+#Let us check how the terrirism events have increased over the years
+
+```{r}
+# group the data by year and count the number of events
+events_per_year <- terror_df %>%
+  group_by(year = year(date)) %>%
+  summarize(num_events = n())
+
+
+# create a bar chart showing the number of events per year
+ggplot(events_per_year, aes(x = year, y = num_events, fill = num_events)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "lightpink", high = "red") +
+  labs(x = "Year", y = "Number of events", title = "Number of terrorist events over time")
+
+```
+Terrorist attacks have increased tremendously from 2012, peaking to ~16k attacks happening that year 
+
+We can see that terrorism started declining after around 1990s towards 2006, but started gaining momentum once again. Why?
+Let us try to see what changed in terms of the areas that were targeted the most, the kind of attacks that happened during that period, which insurgent groups emerged and what kind of weapons did terrorists start using.
+
+
+```{r}
+terror_df_pre2006 <- terror_df %>% filter(year(date) < 2006)
+terror_df_post2006 <- terror_df %>% filter(year(date) > 2006)
+  
+```
+
+
+```{r}
+
+attacks_post2006_by_country <- terror_df_post2006 %>%
+  group_by(country_txt) %>%
+  summarise(total_attacks = n()) %>%
+  arrange(desc(total_attacks)) %>%
+  head(15)
+
+# Create a bar plot using ggplot2 and sort by value
+ggplot(attacks_post2006_by_country, aes(x = reorder(country_txt, total_attacks), y = total_attacks)) +
+  geom_bar(stat = "identity", fill = "red") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("Country") +
+  ylab("Number of attacks") +
+  ggtitle("Total Terror Attacks Post-2006 by Country") +
+  coord_flip()  # Flip the axis to sort by value
+
+
+```
+
+```{r}
+
+library(maps)
+
+# Count the number of attacks per country and create a new data frame
+attacks_post2006_by_country <- terror_df_post2006 %>%
+  group_by(country_txt) %>%
+  summarise(total_attacks = n()) %>%
+  arrange(desc(total_attacks)) %>%
+  slice(1:20) %>%
+  drop_na()
+
+# Load the world map data
+world_map <- map_data("world")
+
+# Merge the number of attacks data with the world map data
+map_data <- merge(world_map, attacks_post2006_by_country, by.x = "region", by.y = "country_txt")
+
+# Create the map plot using ggplot2
+ggplot(data = map_data, aes(x = long, y = lat, group = group, fill = total_attacks)) +
+  geom_polygon(color = "black") +
+  scale_fill_gradient(low = "white", high = "darkred", na.value = "grey90") +
+  labs(title = "Total Attacks Post-2006 by Top 20 Countries", fill = "Total Attacks")
+
+
+
+```
+
+
+Which are the countries where most people are killed every year? And what are some of the most affected states in those countries
+```{r}
+
+
+# Calculate the total number of people killed per year for each country and state
+kills_by_year_by_country <- terror_df_post2006 %>%
+  group_by(iyear, country_txt) %>%
+  summarise(total_kills = sum(nkill, na.rm = TRUE))
+
+
+
+# Create line plot
+ggplot(kills_by_year_by_country, aes(x = iyear, y = total_kills, group = country_txt)) +
+  geom_line() +
+  labs(x = "Year", y = "Total Kills", color = "Country")
+
+
+
+```
+```{r}
+library(ggplot2)
+
+# Filter out the top 5 countries with the most number of kills
+top_countries <- top_kills_by_country %>%
+  arrange(group_by()) %>%
+  slice_head(n = 5) %>%
+  pull(country_txt) %>% 
+
+# Create a new data frame that shows the top 10 states with the most kills for each of the top 5 countries
+top_states <- kills_by_year_by_country %>%
+  filter(country_txt %in% top_countries) %>%
+  group_by(country_txt, provstate) %>%
+  summarise(total_kills = sum(nkill)) %>%
+  arrange(country_txt, desc(total_kills)) %>%
+  group_by(country_txt) %>%
+  slice_head(n = 10)
+
+# Plot a stacked bar chart showing the distribution of kills across the top 10 states for each of the top 5 countries
+ggplot(top_states, aes(x = factor(country_txt), y = total_kills, fill = provstate)) +
+  geom_col(position = "stack") +
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of kills across top 10 states for top 5 countries",
+       x = "Country",
+       y = "Total number of kills") +
+  theme_bw()
+
+
+```
+
 
 ```{r echo=TRUE}
 terror_us <- subset(terror, country == 'United States')
