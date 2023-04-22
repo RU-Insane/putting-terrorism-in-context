@@ -167,66 +167,6 @@ ggplot(kills_by_year_by_country, aes(x = iyear, y = total_kills, group = country
 
 
 ```
-```{r}
-library(ggplot2)
-
-# Filter out the top 5 countries with the most number of kills
-top_countries <- top_kills_by_country %>%
-  arrange(group_by()) %>%
-  slice_head(n = 5) %>%
-  pull(country_txt) %>% 
-
-# Create a new data frame that shows the top 10 states with the most kills for each of the top 5 countries
-top_states <- kills_by_year_by_country %>%
-  filter(country_txt %in% top_countries) %>%
-  group_by(country_txt, provstate) %>%
-  summarise(total_kills = sum(nkill)) %>%
-  arrange(country_txt, desc(total_kills)) %>%
-  group_by(country_txt) %>%
-  slice_head(n = 10)
-
-# Plot a stacked bar chart showing the distribution of kills across the top 10 states for each of the top 5 countries
-ggplot(top_states, aes(x = factor(country_txt), y = total_kills, fill = provstate)) +
-  geom_col(position = "stack") +
-  scale_fill_viridis_d() +
-  labs(title = "Distribution of kills across top 10 states for top 5 countries",
-       x = "Country",
-       y = "Total number of kills") +
-  theme_bw()
-
-
-```
-
-
-```{r echo=TRUE}
-terror_us <- subset(terror, country == 'United States')
-```
-
-
-```{r echo=TRUE}
-missing_values <- colSums(is.na(terror))
-missing_values
-```
-
-```{r echo=TRUE}
-country_counts <- table(terror$country)
-most_attacks_country <- names(country_counts)[which.max(country_counts)]
-most_attacks_country
-```
-
-```{r echo=TRUE}
-ggplot(terror, aes(x = year, fill = region)) +
-  geom_bar(width = 0.8, color = "black") +
-  scale_fill_brewer(palette = "Set1") +
-  labs(x = "Year", y = "Number of Terrorist Incidents", 
-       title = "Number of Terrorist Incidents by Year and Region") +
-  theme(plot.title = element_text(size = 18, face = "bold"), 
-        axis.title = element_text(size = 14), 
-        axis.text = element_text(size = 12),
-        legend.position = "bottom")
-```
-
-
 
 
 
